@@ -100,7 +100,7 @@ app.post('/score-lead', auth, async (req, res) => {
 
 // ─── Tool 3: Save Company to Supabase ───────────────────────────────────────
 app.post('/save-company', auth, async (req, res) => {
-  const { name, linkedin_url, website, industry, company_size, city, tier, pain_points, source, notes } = req.body;
+  const { name, linkedin_url, website, industry, company_size, city, tier, pain_points, source, notes, description, founded } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
 
   const { data, error } = await getSupabase()
@@ -108,6 +108,7 @@ app.post('/save-company', auth, async (req, res) => {
     .upsert({
       name, linkedin_url, website, industry, company_size,
       city: city || 'Amsterdam', tier, pain_points, source, notes,
+      description, founded,
       scraped_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }, { onConflict: 'linkedin_url' })
