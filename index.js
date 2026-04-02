@@ -222,8 +222,8 @@ app.post('/scrape-people', auth, async (req, res) => {
       .map(p => ({
         company_id: company_id || null,
         full_name: [p.firstName, p.lastName].filter(Boolean).join(' '),
-        role: p.title || null,
-        linkedin_url: p.profileUrl || null,
+        role: p.currentPositions?.[0]?.title || null,
+        linkedin_url: p.linkedinUrl || null,
       }));
 
     // Save each contact to Supabase
