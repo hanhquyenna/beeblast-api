@@ -202,31 +202,32 @@ app.get('/existing-urls', auth, async (req, res) => {
   res.json({ urls, total: urls.length });
 });
 
-// ─── Tool 10: Search Leads via Google Maps (no Apify credits needed) ─────────
+// ─── Tool 10: Discover companies via web search ──────────────────────────────
 app.post('/discover-companies', auth, async (req, res) => {
   const { industry, city = 'Amsterdam', limit = 20 } = req.body;
   if (!industry) return res.status(400).json({ error: 'industry required' });
 
   try {
-    // Use Apify Google Maps scraper - cheaper than LinkedIn
     const run = await axios.post(
-      `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=120`,
+      `https://api.apify.com/v2/acts/apify~google-search-scraper/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=60`,
       {
-        searchStringsArray: [`${industry} ${city}`],
-        maxCrawledPlacesPerSearch: limit,
-        language: 'nl',
-        countryCode: 'NL'
+        queries: `${industry} bedrijf ${city} site:linkedin.com/company`,
+        maxPagesPerQuery: 1,
+        resultsPerPage: limit
       }
     );
 
-    const results = (run.data || []).map(place => ({
-      name: place.title,
-      website: place.website || null,
-      city,
-      industry,
-      source: 'google_maps',
-      notes: place.categoryName || null
-    }));
+    const results = (run.data || []).flatMap(page =>
+      (page.organicResults || [])
+        .filter(r => r.url?.includes('linkedin.com/company'))
+        .map(r => ({
+          name: r.title?.replace('| LinkedIn', '').replace('- LinkedIn', '').trim(),
+          linkedin_url: r.url,
+          city,
+          industry,
+          source: 'google_search'
+        }))
+    );
 
     res.json({ companies: results, total: results.length });
   } catch (err) {
