@@ -103,7 +103,7 @@ app.post('/save-company', auth, async (req, res) => {
   const { name, linkedin_url, website, industry, company_size, city, tier, pain_points, source, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('companies')
     .upsert({
       name, linkedin_url, website, industry, company_size,
@@ -122,7 +122,7 @@ app.post('/save-company', auth, async (req, res) => {
 app.post('/save-contact', auth, async (req, res) => {
   const { company_id, full_name, role, linkedin_url, email, email_confidence, phone, notes } = req.body;
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('contacts')
     .upsert({
       company_id, full_name, role, linkedin_url,
@@ -158,7 +158,7 @@ app.patch('/contacts/:id/status', auth, async (req, res) => {
   const { id } = req.params;
   const { outreach_status, replied, notes } = req.body;
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('contacts')
     .update({
       outreach_status,
@@ -239,7 +239,7 @@ app.post('/discover-companies', auth, async (req, res) => {
 app.get('/followup-due', auth, async (req, res) => {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('contacts')
     .select('*, companies(name, tier)')
     .eq('replied', false)
