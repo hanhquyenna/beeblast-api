@@ -209,6 +209,17 @@ app.post('/scrape-people', auth, async (req, res) => {
   if (!linkedin_url) return res.status(400).json({ error: 'linkedin_url required' });
 
   try {
+    // Auto-lookup company_id from linkedin_url if not provided
+    let resolved_company_id = company_id || null;
+    if (!resolved_company_id) {
+      const { data: comp } = await getSupabase()
+        .from('companies')
+        .select('id')
+        .eq('linkedin_url', linkedin_url)
+        .single();
+      if (comp) resolved_company_id = comp.id;
+    }
+
     const run = await axios.post(
       `https://api.apify.com/v2/acts/harvestapi~linkedin-company-employees/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=60`,
       { companies: [linkedin_url], maxItems: 5, profileScraperMode: "Short ($4 per 1k)", recentlyChangedJobs: false, companyBatchMode: "all_at_once" }
@@ -221,7 +232,7 @@ app.post('/scrape-people', auth, async (req, res) => {
         return roles.some(r => p.title.toLowerCase().includes(r.toLowerCase()));
       })
       .map(p => ({
-        company_id: company_id || null,
+        company_id: resolved_company_id,
         full_name: [p.firstName, p.lastName].filter(Boolean).join(' '),
         role: p.currentPositions?.[0]?.title || null,
         linkedin_url: p.linkedinUrl || null,
