@@ -8,10 +8,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!url || !key) throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const API_KEY = process.env.API_KEY || 'beeblast-secret';
@@ -134,7 +140,7 @@ app.post('/save-contact', auth, async (req, res) => {
 app.get('/pipeline', auth, async (req, res) => {
   const { tier, stage, limit = 50 } = req.query;
 
-  let query = supabase.from('companies').select(`
+  let query = getSupabase().from('companies').select(`
     *,
     contacts (id, full_name, role, email, outreach_status, replied)
   `).order('tier', { ascending: true }).limit(parseInt(limit));
