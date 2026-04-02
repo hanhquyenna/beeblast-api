@@ -202,6 +202,48 @@ app.get('/existing-urls', auth, async (req, res) => {
   res.json({ urls, total: urls.length });
 });
 
+// ─── Tool 9b: Scrape People from LinkedIn ────────────────────────────────────
+app.post('/scrape-people', auth, async (req, res) => {
+  const { linkedin_url, company_id, roles = ['Owner', 'Director', 'Manager', 'CEO', 'Founder'] } = req.body;
+  if (!linkedin_url) return res.status(400).json({ error: 'linkedin_url required' });
+
+  try {
+    const run = await axios.post(
+      `https://api.apify.com/v2/acts/harvestapi~linkedin-company-employees/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=60`,
+      { company: linkedin_url, limit: 10 }
+    );
+
+    const people = (run.data || [])
+      .filter(p => p.firstName || p.lastName)
+      .filter(p => {
+        if (!p.title) return true;
+        return roles.some(r => p.title.toLowerCase().includes(r.toLowerCase()));
+      })
+      .map(p => ({
+        company_id: company_id || null,
+        full_name: [p.firstName, p.lastName].filter(Boolean).join(' '),
+        role: p.title || null,
+        linkedin_url: p.profileUrl || null,
+      }));
+
+    // Save each contact to Supabase
+    const saved = [];
+    for (const person of people) {
+      if (!person.linkedin_url) continue;
+      const { data, error } = await getSupabase()
+        .from('contacts')
+        .upsert(person, { onConflict: 'linkedin_url' })
+        .select()
+        .single();
+      if (!error && data) saved.push(data);
+    }
+
+    res.json({ contacts: saved, total: saved.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Tool 10: Discover companies via web search ──────────────────────────────
 app.post('/discover-companies', auth, async (req, res) => {
   const { industry, city = 'Amsterdam', limit = 20 } = req.body;
