@@ -210,7 +210,7 @@ app.post('/scrape-people', auth, async (req, res) => {
   try {
     const run = await axios.post(
       `https://api.apify.com/v2/acts/harvestapi~linkedin-company-employees/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=60`,
-      { company: linkedin_url, limit: 10 }
+      { companies: [linkedin_url], maxItems: 5, profileScraperMode: "Short ($4 per 1k)", recentlyChangedJobs: false, companyBatchMode: "all_at_once" }
     );
 
     const people = (run.data || [])
