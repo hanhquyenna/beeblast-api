@@ -180,7 +180,7 @@ app.post('/outreach-log', auth, async (req, res) => {
   const { contact_id, channel, sequence_step, message_preview } = req.body;
   if (!contact_id) return res.status(400).json({ error: 'contact_id required' });
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('outreach_log')
     .insert({ contact_id, channel, sequence_step, message_preview })
     .select()
@@ -188,6 +188,50 @@ app.post('/outreach-log', auth, async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, log: data });
+});
+
+// ─── Tool 9: Get Existing URLs (for dedup) ───────────────────────────────────
+app.get('/existing-urls', auth, async (req, res) => {
+  const { data, error } = await getSupabase()
+    .from('companies')
+    .select('linkedin_url')
+    .not('linkedin_url', 'is', null);
+
+  if (error) return res.status(500).json({ error: error.message });
+  const urls = data.map(r => r.linkedin_url);
+  res.json({ urls, total: urls.length });
+});
+
+// ─── Tool 10: Search Leads via Google Maps (no Apify credits needed) ─────────
+app.post('/discover-companies', auth, async (req, res) => {
+  const { industry, city = 'Amsterdam', limit = 20 } = req.body;
+  if (!industry) return res.status(400).json({ error: 'industry required' });
+
+  try {
+    // Use Apify Google Maps scraper - cheaper than LinkedIn
+    const run = await axios.post(
+      `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${process.env.APIFY_TOKEN}&timeout=120`,
+      {
+        searchStringsArray: [`${industry} ${city}`],
+        maxCrawledPlacesPerSearch: limit,
+        language: 'nl',
+        countryCode: 'NL'
+      }
+    );
+
+    const results = (run.data || []).map(place => ({
+      name: place.title,
+      website: place.website || null,
+      city,
+      industry,
+      source: 'google_maps',
+      notes: place.categoryName || null
+    }));
+
+    res.json({ companies: results, total: results.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Tool 8: Get Leads Needing Follow-up ────────────────────────────────────
